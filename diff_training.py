@@ -55,6 +55,10 @@ def create_dataset(dataset, number_of_series_for_prediction = 24):
 X_train, y_train = create_dataset(train, NUMBER_OF_SERIES_FOR_PREDICTION)
 X_test, y_test = create_dataset(test, NUMBER_OF_SERIES_FOR_PREDICTION)
 
+print(f'Dimension of X_train is {X_train.shape}')
+print(f'Dimension of y_train is {y_train.shape}')
+print(f'Dimension of X_test is {X_test.shape}')
+print(f'Dimension of y_test is {y_test.shape}')
 # Building a model
 def transformer_block(inputs, model_dim, num_heads, ff_dim, dropout = 0.1):
     # Multi-head attention layer
