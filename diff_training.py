@@ -3,7 +3,7 @@ import ta
 import pandas as pd
 import numpy as np
 from keras.models import Model
-from keras.layers import Input, Dense, MultiHeadAttention, LayerNormalization, Dropout, Add
+from keras.layers import Input, Dense, MultiHeadAttention, LayerNormalization, Dropout, Add, GlobalAveragePooling1D
 from keras.losses import MeanSquaredError, MeanAbsoluteError
 from keras.optimizers import Adam
 
@@ -23,6 +23,10 @@ feature['MACD'] = ta.trend.macd(gspc_data['Close'])
 feature['RSI'] = ta.momentum.rsi(gspc_data['Close'])
 feature['Close'] = gspc_data['Close']
 
+gspc_data['SMA'] = feature['SMA']
+gspc_data['MACD'] = feature['MACD']
+gspc_data['RSI'] = feature['RSI']
+
 # Normalize Feature data that can be the input of the model
 mean = {}
 std = {}
@@ -34,6 +38,8 @@ for key in feature.keys():
     feature[key] = (feature[key] - mean[key]) / std[key]
 
 # Split train data and validation data and test data
+feature = feature.dropna()
+gspc_data = gspc_data.dropna()
 train_data_size = int(len(feature) * TRAIN_DATA_RATIO)
 
 train = feature[:train_data_size]
@@ -81,20 +87,21 @@ def build_transformer_model(input_shape, model_dim, num_heads, num_layers, ff_di
     for _ in range(num_layers):
         x = transformer_block(x, model_dim, num_heads, ff_dim, dropout)
     
+    x = GlobalAveragePooling1D()(x)
     outputs = Dense(output_dim)(x)
     
     model = Model(inputs = inputs, outputs = outputs)
     return model
 
-X_train = X_train.reshape(X_train.shape[0], -1)
-X_test = X_test.reshape(X_test.shape[0], -1)
+# X_train = X_train.reshape(X_train.shape[0], -1)
+# X_test = X_test.reshape(X_test.shape[0], -1)
 
-print(f'Dimension of X_train is {X_train.shape}')
-print(f'Dimension of y_train is {y_train.shape}')
-print(f'Dimension of X_test is {X_test.shape}')
-print(f'Dimension of y_test is {y_test.shape}')
+print(f'Dimension of X_train is {X_train}')
+print(f'Dimension of y_train is {y_train}')
+# print(f'Dimension of X_test is {X_test.shape}')
+# print(f'Dimension of y_test is {y_test.shape}')
 
-input_shape = X_train.shape[1]
+input_shape = (X_train.shape[1], X_train.shape[2])
 model_dim = 64
 num_heads = 8
 num_layers = 6
