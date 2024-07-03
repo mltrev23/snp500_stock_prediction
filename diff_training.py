@@ -124,7 +124,7 @@ print(f'Test result: Loss {loss}, MSE {mse}')
 
 # Make Predictions
 predictions = model.predict(X_test)
-predictions = predictions * std[-1] + mean[-1]
+predictions = predictions * std['Close'] + mean['Close']
 
 predictions = predictions.flatten()
 max_diff = 0
