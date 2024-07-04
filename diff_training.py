@@ -140,3 +140,5 @@ pred_dir = np.where(predictions.shift(-1) > predictions, 1, 0)
 dir_acc = np.mean(gspc_dir == pred_dir)
 
 print(f'Directioin accuracy: {dir_acc}')
+
+model.save('diff_training.h5')
