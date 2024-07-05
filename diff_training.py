@@ -52,7 +52,7 @@ def create_dataset(dataset, number_of_series_for_prediction = 24):
     data_np = np.array(dataset)
     print(data_np.shape)
     
-    for i in range(len(data_np) - number_of_series_for_prediction - 1):
+    for i in range(len(data_np) - number_of_series_for_prediction):
         X_data.append(data_np[i : i + number_of_series_for_prediction])
         y_data.append(data_np[i + number_of_series_for_prediction, -1:])
     
@@ -128,17 +128,17 @@ predictions = predictions * std['Close'] + mean['Close']
 
 predictions = predictions.flatten()
 max_diff = 0
-for org, pred in zip(gspc_data.Close[:train_data_size], predictions):
+for org, pred in zip(gspc_data.Close[train_data_size + NUMBER_OF_SERIES_FOR_PREDICTION:], predictions):
     diff = np.abs(org - pred)
     if max_diff < diff: max_diff = diff
     print(f'Truth: {org}, Prediction: {pred} ----> Diff: {diff}')
 
 print(f'Max Diff: {max_diff}')
 
-gspc_dir = np.where(gspc_data[:train_data_size].shift(-1) > gspc_data[:train_data_size], 1, 0)
-pred_dir = np.where(predictions.shift(-1) > predictions, 1, 0)
+gspc_dir = np.where(test[NUMBER_OF_SERIES_FOR_PREDICTION:][:-1] > test[NUMBER_OF_SERIES_FOR_PREDICTION:][1:], 1, 0)
+pred_dir = np.where(predictions[:-1] > predictions[1:], 1, 0)
 dir_acc = np.mean(gspc_dir == pred_dir)
 
-print(f'Directioin accuracy: {dir_acc}')
+print(f'Direction accuracy: {dir_acc}')
 
 model.save('diff_training.h5')
