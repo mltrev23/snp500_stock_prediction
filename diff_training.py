@@ -6,7 +6,7 @@ from keras.models import Model
 from keras.layers import Input, Dense, MultiHeadAttention, LayerNormalization, Dropout, Add, GlobalAveragePooling1D
 from keras.losses import MeanSquaredError, MeanAbsoluteError
 from keras.optimizers import Adam
-from keras.callbacks import LearningRateScheduler
+from keras.callbacks import LearningRateScheduler, EarlyStopping
 
 TRAIN_DATA_RATIO = 0.8
 VALIDATION_DATA_RATIO = 0.2
@@ -118,7 +118,7 @@ def custom_lr_schedule(epoch, lr):
     warmup_epochs = 10
     warmup_lr = 1e-4
     initial_lr = 1e-3
-    decay_rate = 0.5
+    decay_rate = 0.4
     decay_step = 10
     
     if epoch < warmup_epochs:
@@ -127,12 +127,15 @@ def custom_lr_schedule(epoch, lr):
         lr = initial_lr * (decay_rate ** ((epoch - warmup_epochs) / decay_step))
     return lr
 
+# Early Stopping
+early_stopping = EarlyStopping(monitor = 'val_loss', patience = 10, min_delta = 1e-4, mode = 'min', restore_best_weights = True)
+
 # Train model
 num_epochs = 200
 batch_size = 64
 
 lr_scheduler = LearningRateScheduler(custom_lr_schedule)
-model.fit(X_train, y_train, validation_split = VALIDATION_DATA_RATIO, epochs = num_epochs, batch_size = batch_size, callbacks = [lr_scheduler])
+model.fit(X_train, y_train, validation_split = VALIDATION_DATA_RATIO, epochs = num_epochs, batch_size = batch_size, callbacks = [lr_scheduler, early_stopping])
 
 # Evaluate model
 loss, mse = model.evaluate(X_test, y_test)
