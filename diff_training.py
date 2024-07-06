@@ -6,6 +6,7 @@ from keras.models import Model
 from keras.layers import Input, Dense, MultiHeadAttention, LayerNormalization, Dropout, Add, GlobalAveragePooling1D
 from keras.losses import MeanSquaredError, MeanAbsoluteError
 from keras.optimizers import Adam
+from keras.callbacks import LearningRateScheduler
 
 TRAIN_DATA_RATIO = 0.8
 VALIDATION_DATA_RATIO = 0.2
@@ -112,11 +113,26 @@ model = build_transformer_model(input_shape, model_dim, num_heads, num_layers, f
 print(model.summary())
 model.compile(optimizer = Adam(), loss = MeanAbsoluteError(), metrics = [MeanAbsoluteError()])
 
+# Custorm Learning Rate Schedular
+def custom_lr_schedule(epoch, lr):
+    warmup_epochs = 10
+    warmup_lr = 1e-4
+    initial_lr = 1e-3
+    decay_rate = 0.5
+    decay_step = 10
+    
+    if epoch < warmup_epochs:
+        lr = warmup_lr + (initial_lr - warmup_lr) * (epoch / warmup_epochs)
+    else:
+        lr = initial_lr * (decay_rate ** ((epoch - warmup_epochs) / decay_step))
+    return lr
+
 # Train model
-num_epochs = 50
+num_epochs = 200
 batch_size = 64
 
-model.fit(X_train, y_train, validation_split = VALIDATION_DATA_RATIO, epochs = num_epochs, batch_size = batch_size)
+lr_scheduler = LearningRateScheduler(custom_lr_schedule)
+model.fit(X_train, y_train, validation_split = VALIDATION_DATA_RATIO, epochs = num_epochs, batch_size = batch_size, callbacks = [lr_scheduler])
 
 # Evaluate model
 loss, mse = model.evaluate(X_test, y_test)
@@ -135,7 +151,7 @@ for org, pred in zip(gspc_data.Close[train_data_size + NUMBER_OF_SERIES_FOR_PRED
 
 print(f'Max Diff: {max_diff}')
 
-gspc_dir = np.where(test[NUMBER_OF_SERIES_FOR_PREDICTION:][:-1] > test[NUMBER_OF_SERIES_FOR_PREDICTION:][1:], 1, 0)
+gspc_dir = np.where(np.array(test.Close)[NUMBER_OF_SERIES_FOR_PREDICTION:][:-1] > np.array(test.Close)[NUMBER_OF_SERIES_FOR_PREDICTION:][1:], 1, 0)
 pred_dir = np.where(predictions[:-1] > predictions[1:], 1, 0)
 dir_acc = np.mean(gspc_dir == pred_dir)
 
