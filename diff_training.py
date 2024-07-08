@@ -2,11 +2,15 @@ import yfinance as yf
 import ta
 import pandas as pd
 import numpy as np
+import tensorflow as tf
+
 from keras.models import Model
 from keras.layers import Input, Dense, MultiHeadAttention, LayerNormalization, Dropout, Add, GlobalAveragePooling1D
 from keras.losses import MeanSquaredError, MeanAbsoluteError
 from keras.optimizers import Adam
-from keras.callbacks import LearningRateScheduler, EarlyStopping
+from keras.callbacks import LearningRateScheduler, EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
+
+import matplotlib.pyplot as plt
 
 TRAIN_DATA_RATIO = 0.8
 VALIDATION_DATA_RATIO = 0.2
@@ -81,9 +85,20 @@ def transformer_block(inputs, model_dim, num_heads, ff_dim, dropout = 0.1):
     
     return output2
 
+def positional_encoding(max_position, model_dim):
+    angle_rads = np.arange(max_position)[:, np.newaxis] / np.power(10000, (2 * (np.arange(model_dim)[np.newaxis, :] // 2)) / np.float32(model_dim))
+    sines = np.sin(angle_rads[:, 0::2])
+    cosines = np.cos(angle_rads[:, 1::2])
+    pos_encoding = np.concatenate([sines, cosines], axis=-1)
+    pos_encoding = pos_encoding[np.newaxis, ...]
+    return tf.cast(pos_encoding, dtype=tf.float32)
+
+
 def build_transformer_model(input_shape, model_dim, num_heads, num_layers, ff_dim, output_dim, dropout = 0.1):
     inputs = Input(input_shape)
     x = Dense(model_dim)(inputs)
+    #position_encoding = positional_encoding(input_shape[0], model_dim)
+    #x = x + position_encoding
     
     for _ in range(num_layers):
         x = transformer_block(x, model_dim, num_heads, ff_dim, dropout)
@@ -111,7 +126,16 @@ output_dim = 1
 
 model = build_transformer_model(input_shape, model_dim, num_heads, num_layers, ff_dim, output_dim)
 print(model.summary())
-model.compile(optimizer = Adam(), loss = MeanAbsoluteError(), metrics = [MeanAbsoluteError()])
+
+# Direction Accuracy Metric
+def direction_accuracy(y_true, y_pred):
+    print(f'y_true {y_true}')
+    print(f'y_pred {y_pred}')
+    direction_true = tf.sign(y_true[:, 1:] - y_true[:, :-1])
+    direction_pred = tf.sign(y_pred[:, 1:] - y_pred[:, :-1])
+    correct_directions = tf.equal(direction_true, direction_pred)
+    return tf.reduce_mean(tf.cast(correct_directions, tf.float32))
+model.compile(optimizer = Adam(), loss = MeanAbsoluteError(), metrics = [direction_accuracy])
 
 # Custorm Learning Rate Schedular
 def custom_lr_schedule(epoch, lr):
@@ -128,14 +152,20 @@ def custom_lr_schedule(epoch, lr):
     return lr
 
 # Early Stopping
-early_stopping = EarlyStopping(monitor = 'val_loss', patience = 10, min_delta = 1e-4, mode = 'min', restore_best_weights = True)
+early_stopping = EarlyStopping(monitor = 'val_loss', patience = 20, min_delta = 1e-4, mode = 'min', restore_best_weights = True)
+
+# Model checkpoint
+model_checkpoint = ModelCheckpoint(filepath = 'model_checkpoint.keras', save_best_only = True, monitor = 'val_loss', mode = 'min', verbose = 1)
+
+# Reduce learning rate when a metric has stopped improving
+reduce_lr = ReduceLROnPlateau(monitor = 'val_loss', factor = 0.5, patience = 5, min_lr = 1e-6, verbose = 1)
 
 # Train model
 num_epochs = 200
 batch_size = 64
 
 lr_scheduler = LearningRateScheduler(custom_lr_schedule)
-model.fit(X_train, y_train, validation_split = VALIDATION_DATA_RATIO, epochs = num_epochs, batch_size = batch_size, callbacks = [lr_scheduler, early_stopping])
+model.fit(X_train, y_train, validation_split = VALIDATION_DATA_RATIO, epochs = num_epochs, batch_size = batch_size, callbacks = [early_stopping, reduce_lr, model_checkpoint])
 
 # Evaluate model
 loss, mse = model.evaluate(X_test, y_test)
@@ -144,20 +174,42 @@ print(f'Test result: Loss {loss}, MSE {mse}')
 # Make Predictions
 predictions = model.predict(X_test)
 predictions = predictions * std['Close'] + mean['Close']
+print(predictions.shape)
 
 predictions = predictions.flatten()
+print(f'after flatten {predictions.shape}')
+
+actual_close_prices = gspc_data.Close[train_data_size + NUMBER_OF_SERIES_FOR_PREDICTION:]
+print(f'actual_close_prices {actual_close_prices.shape}')
+
 max_diff = 0
-for org, pred in zip(gspc_data.Close[train_data_size + NUMBER_OF_SERIES_FOR_PREDICTION:], predictions):
+for org, pred in zip(actual_close_prices, predictions):
     diff = np.abs(org - pred)
     if max_diff < diff: max_diff = diff
     print(f'Truth: {org}, Prediction: {pred} ----> Diff: {diff}')
 
 print(f'Max Diff: {max_diff}')
 
-gspc_dir = np.where(np.array(test.Close)[NUMBER_OF_SERIES_FOR_PREDICTION:][:-1] > np.array(test.Close)[NUMBER_OF_SERIES_FOR_PREDICTION:][1:], 1, 0)
+actual_close_prices = np.array(actual_close_prices)
+print(f'actual_close_prices {actual_close_prices.shape}')
+
+gspc_dir = np.where(actual_close_prices[:-1] > actual_close_prices[1:], 1, 0)
 pred_dir = np.where(predictions[:-1] > predictions[1:], 1, 0)
 dir_acc = np.mean(gspc_dir == pred_dir)
 
 print(f'Direction accuracy: {dir_acc}')
 
 model.save('diff_training.h5')
+
+# Plotting the actual and predicted values
+plt.figure(figsize=(20, 14))
+plt.plot(actual_close_prices, label='Actual Close Prices', color='blue')
+plt.plot(predictions, label='Predicted Close Prices', color='red', linestyle='--')
+plt.title('Actual vs Predicted Close Prices')
+plt.xlabel('Time')
+plt.ylabel('Close Price')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+plt.savefig('diff_training.png')
