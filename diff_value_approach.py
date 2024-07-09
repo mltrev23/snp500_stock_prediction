@@ -173,7 +173,13 @@ print(f'Test result: Loss {loss}, MSE {mse}')
 
 # test trained data predictions
 prediction_train_data = model.predict(X_train)
-prediction_train_data += y_train[: -1]
+var = np.array(train.Close[NUMBER_OF_SERIES_FOR_PREDICTION - 1 : -1]).reshape(-1, 1)
+print('------------------------------------------------------------------------------------------------')
+print(prediction_train_data.shape)
+print(var.shape)
+print(var)
+print('------------------------------------------------------------------------------------------------')
+prediction_train_data += var
 prediction_train_data = prediction_train_data * std['Close'] + mean['Close']
 
 actual_close_prices = np.array(gspc_data.Close[NUMBER_OF_SERIES_FOR_PREDICTION: train_data_size])
@@ -194,7 +200,13 @@ plt.savefig('diff_training.png')
 
 # Make Predictions
 predictions = model.predict(X_test)
-predictions += y_test[: -1]
+var = np.array(test.Close[NUMBER_OF_SERIES_FOR_PREDICTION - 1 : -1]).reshape(-1, 1)
+print('------------------------------------------------------------------------------------------------')
+print(predictions.shape)
+print(var.shape)
+print(var)
+print('------------------------------------------------------------------------------------------------')
+predictions += var
 predictions = predictions * std['Close'] + mean['Close']
 print(predictions.shape)
 
