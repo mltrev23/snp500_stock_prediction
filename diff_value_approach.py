@@ -180,7 +180,7 @@ actual_close_prices = np.array(gspc_data.Close[NUMBER_OF_SERIES_FOR_PREDICTION: 
 
 # Plotting the actual and predicted values
 plt.figure(figsize=(20, 14))
-plt.plot(actual_close_prices, label='Actual Close Prices', color='blue')
+plt.plot(actual_close_prices, label='Actual Close Prices', color='blue')  
 plt.plot(prediction_train_data, label='Predicted Close Prices', color='red', linestyle='--')
 plt.title('Actual vs Predicted Close Prices')
 plt.xlabel('Time')
