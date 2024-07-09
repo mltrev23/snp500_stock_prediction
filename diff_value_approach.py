@@ -10,6 +10,7 @@ from keras.callbacks import LearningRateScheduler, EarlyStopping, ModelCheckpoin
 
 import matplotlib.pyplot as plt
 from build_transformer import build_transformer_model
+from build_dense_layer import build_model
 
 TRAIN_DATA_RATIO = 0.8
 VALIDATION_DATA_RATIO = 0.2
@@ -59,6 +60,7 @@ def create_dataset(dataset, number_of_series_for_prediction = 24):
     for i in range(len(data_np) - number_of_series_for_prediction):
         X_data.append(data_np[i : i + number_of_series_for_prediction])
         y_data.append([data_np[i + number_of_series_for_prediction, -1] - data_np[i + number_of_series_for_prediction - 1, -1]])
+    y_data = np.where(np.array(y_data) > 0, 1, -1)
     
     return np.array(X_data), np.array(y_data)
 
@@ -78,14 +80,21 @@ print(f'Dimension of y_train is {y_train}')
 # print(f'Dimension of X_test is {X_test.shape}')
 # print(f'Dimension of y_test is {y_test.shape}')
 
-input_shape = (X_train.shape[1], X_train.shape[2])
-model_dim = 64
-num_heads = 8
-num_layers = 6
-ff_dim = 128
-output_dim = 1
+# input_shape = (X_train.shape[1], X_train.shape[2])
+# model_dim = 64
+# num_heads = 8
+# num_layers = 6
+# ff_dim = 128
+# output_dim = 1
 
-model = build_transformer_model(input_shape, model_dim, num_heads, num_layers, ff_dim, output_dim)
+# model = build_transformer_model(input_shape, model_dim, num_heads, num_layers, ff_dim, output_dim)
+
+X_train = X_train.reshape(X_train.shape[0], -1)
+X_test = X_test.reshape(X_test.shape[0], -1)
+
+input_shape = X_train.shape[1]
+output_dim = 1
+model = build_model(input_shape, output_dim, 128)
 print(model.summary())
 
 # Direction Accuracy Metric
@@ -96,7 +105,7 @@ def direction_accuracy(y_true, y_pred):
     direction_pred = tf.sign(y_pred[:, 1:] - y_pred[:, :-1])
     correct_directions = tf.equal(direction_true, direction_pred)
     return tf.reduce_mean(tf.cast(correct_directions, tf.float32))
-model.compile(optimizer = Adam(), loss = MeanAbsoluteError(), metrics = [direction_accuracy])
+model.compile(optimizer = Adam(), loss = MeanAbsoluteError(), metrics = ['mse'])
 
 # Custorm Learning Rate Schedular
 def custom_lr_schedule(epoch, lr):
