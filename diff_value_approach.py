@@ -4,13 +4,12 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 
-from keras.models import Model
-from keras.layers import Input, Dense, MultiHeadAttention, LayerNormalization, Dropout, Add, GlobalAveragePooling1D
 from keras.losses import MeanSquaredError, MeanAbsoluteError
 from keras.optimizers import Adam
 from keras.callbacks import LearningRateScheduler, EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 
 import matplotlib.pyplot as plt
+from build_transformer import build_transformer_model
 
 TRAIN_DATA_RATIO = 0.8
 VALIDATION_DATA_RATIO = 0.2
@@ -70,44 +69,6 @@ print(f'Dimension of X_train is {X_train.shape}')
 print(f'Dimension of y_train is {y_train.shape}')
 print(f'Dimension of X_test is {X_test.shape}')
 print(f'Dimension of y_test is {y_test.shape}')
-# Building a model
-def transformer_block(inputs, model_dim, num_heads, ff_dim, dropout = 0.1):
-    # Multi-head attention layer
-    attention_output = MultiHeadAttention(num_heads = num_heads, key_dim = model_dim)(inputs, inputs)
-    attention_output = Dropout(dropout)(attention_output)
-    output1 = LayerNormalization(epsilon = 1e-6)(inputs + attention_output)
-    
-    # Feed-forward layer
-    ff_output = Dense(ff_dim, activation = 'relu')(output1)
-    ff_output = Dense(model_dim)(ff_output)
-    ff_output = Dropout(dropout)(ff_output)
-    output2 = LayerNormalization(epsilon = 1e-6)(output1 + ff_output)
-    
-    return output2
-
-def positional_encoding(max_position, model_dim):
-    angle_rads = np.arange(max_position)[:, np.newaxis] / np.power(10000, (2 * (np.arange(model_dim)[np.newaxis, :] // 2)) / np.float32(model_dim))
-    sines = np.sin(angle_rads[:, 0::2])
-    cosines = np.cos(angle_rads[:, 1::2])
-    pos_encoding = np.concatenate([sines, cosines], axis=-1)
-    pos_encoding = pos_encoding[np.newaxis, ...]
-    return tf.cast(pos_encoding, dtype=tf.float32)
-
-
-def build_transformer_model(input_shape, model_dim, num_heads, num_layers, ff_dim, output_dim, dropout = 0.1):
-    inputs = Input(input_shape)
-    x = Dense(model_dim)(inputs)
-    #position_encoding = positional_encoding(input_shape[0], model_dim)
-    #x = x + position_encoding
-    
-    for _ in range(num_layers):
-        x = transformer_block(x, model_dim, num_heads, ff_dim, dropout)
-    
-    x = GlobalAveragePooling1D()(x)
-    outputs = Dense(output_dim)(x)
-    
-    model = Model(inputs = inputs, outputs = outputs)
-    return model
 
 # X_train = X_train.reshape(X_train.shape[0], -1)
 # X_test = X_test.reshape(X_test.shape[0], -1)
@@ -173,6 +134,20 @@ print(f'Test result: Loss {loss}, MSE {mse}')
 
 # test trained data predictions
 prediction_train_data = model.predict(X_train)
+
+# Plotting the actual and predicted values
+plt.figure(figsize=(20, 14))
+plt.plot(y_train, label='Actual values', color='blue')  
+plt.plot(prediction_train_data, label='Predicted values', color='red', linestyle='--')
+plt.title('Actual vs Predicted values')
+plt.xlabel('Time')
+plt.ylabel('Close Price')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+plt.savefig('diff_traindata_inference.png')
+
 first = train.Close[NUMBER_OF_SERIES_FOR_PREDICTION - 1]
 
 print(f'first {first}')
