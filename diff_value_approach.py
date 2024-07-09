@@ -169,11 +169,11 @@ model.fit(X_train, y_train, validation_split = VALIDATION_DATA_RATIO, epochs = n
 
 # Evaluate model
 loss, mse = model.evaluate(X_test, y_test)
-print(f'Test result: Loss {loss}, MSE {mse}')
+print(f'Test result: Loss {loss}, MSE {mse}')  
 
 # test trained data predictions
 prediction_train_data = model.predict(X_train)
-prediction_train_data += y_train[NUMBER_OF_SERIES_FOR_PREDICTION - 1: -1]
+prediction_train_data += y_train[: -1]
 prediction_train_data = prediction_train_data * std['Close'] + mean['Close']
 
 actual_close_prices = np.array(gspc_data.Close[NUMBER_OF_SERIES_FOR_PREDICTION: train_data_size])
@@ -194,7 +194,7 @@ plt.savefig('diff_training.png')
 
 # Make Predictions
 predictions = model.predict(X_test)
-predictions += y_test[NUMBER_OF_SERIES_FOR_PREDICTION - 1: -1]
+predictions += y_test[: -1]
 predictions = predictions * std['Close'] + mean['Close']
 print(predictions.shape)
 
