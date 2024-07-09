@@ -173,13 +173,13 @@ print(f'Test result: Loss {loss}, MSE {mse}')
 
 # test trained data predictions
 prediction_train_data = model.predict(X_train)
-var = np.array(train.Close[NUMBER_OF_SERIES_FOR_PREDICTION - 1 : -1]).reshape(-1, 1)
-print('------------------------------------------------------------------------------------------------')
-print(prediction_train_data.shape)
-print(var.shape)
-print(var)
-print('------------------------------------------------------------------------------------------------')
-prediction_train_data += var
+first = train.Close[NUMBER_OF_SERIES_FOR_PREDICTION - 1]
+
+print(f'first {first}')
+prediction_train_data[0] += first
+for i in range(1, len(prediction_train_data)):
+    prediction_train_data[i][0] += prediction_train_data[i - 1][0]
+
 prediction_train_data = prediction_train_data * std['Close'] + mean['Close']
 
 actual_close_prices = np.array(gspc_data.Close[NUMBER_OF_SERIES_FOR_PREDICTION: train_data_size])
@@ -200,13 +200,13 @@ plt.savefig('diff_training.png')
 
 # Make Predictions
 predictions = model.predict(X_test)
-var = np.array(test.Close[NUMBER_OF_SERIES_FOR_PREDICTION - 1 : -1]).reshape(-1, 1)
-print('------------------------------------------------------------------------------------------------')
-print(predictions.shape)
-print(var.shape)
-print(var)
-print('------------------------------------------------------------------------------------------------')
-predictions += var
+first = test.Close[NUMBER_OF_SERIES_FOR_PREDICTION - 1]
+
+print(f'first {first}')
+predictions[0] += first
+for i in range(1, len(predictions)):
+    predictions[i][0] += predictions[i - 1][0]
+
 predictions = predictions * std['Close'] + mean['Close']
 print(predictions.shape)
 
