@@ -163,3 +163,4 @@ cython_debug/
 
 ta-lib/
 .gz
+.github/
