@@ -4,13 +4,13 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 
-from keras.models import Model
-from keras.layers import Input, Dense, MultiHeadAttention, LayerNormalization, Dropout, Add, GlobalAveragePooling1D
 from keras.losses import MeanSquaredError, MeanAbsoluteError
 from keras.optimizers import Adam
 from keras.callbacks import LearningRateScheduler, EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 
 import matplotlib.pyplot as plt
+from build_transformer import build_transformer_model
+from build_dense_layer import build_model
 
 TRAIN_DATA_RATIO = 0.8
 VALIDATION_DATA_RATIO = 0.2
@@ -60,6 +60,7 @@ def create_dataset(dataset, number_of_series_for_prediction = 24):
     for i in range(len(data_np) - number_of_series_for_prediction):
         X_data.append(data_np[i : i + number_of_series_for_prediction])
         y_data.append([data_np[i + number_of_series_for_prediction, -1] - data_np[i + number_of_series_for_prediction - 1, -1]])
+    y_data = np.where(np.array(y_data) > 0, 1, -1)
     
     return np.array(X_data), np.array(y_data)
 
@@ -70,44 +71,6 @@ print(f'Dimension of X_train is {X_train.shape}')
 print(f'Dimension of y_train is {y_train.shape}')
 print(f'Dimension of X_test is {X_test.shape}')
 print(f'Dimension of y_test is {y_test.shape}')
-# Building a model
-def transformer_block(inputs, model_dim, num_heads, ff_dim, dropout = 0.1):
-    # Multi-head attention layer
-    attention_output = MultiHeadAttention(num_heads = num_heads, key_dim = model_dim)(inputs, inputs)
-    attention_output = Dropout(dropout)(attention_output)
-    output1 = LayerNormalization(epsilon = 1e-6)(inputs + attention_output)
-    
-    # Feed-forward layer
-    ff_output = Dense(ff_dim, activation = 'relu')(output1)
-    ff_output = Dense(model_dim)(ff_output)
-    ff_output = Dropout(dropout)(ff_output)
-    output2 = LayerNormalization(epsilon = 1e-6)(output1 + ff_output)
-    
-    return output2
-
-def positional_encoding(max_position, model_dim):
-    angle_rads = np.arange(max_position)[:, np.newaxis] / np.power(10000, (2 * (np.arange(model_dim)[np.newaxis, :] // 2)) / np.float32(model_dim))
-    sines = np.sin(angle_rads[:, 0::2])
-    cosines = np.cos(angle_rads[:, 1::2])
-    pos_encoding = np.concatenate([sines, cosines], axis=-1)
-    pos_encoding = pos_encoding[np.newaxis, ...]
-    return tf.cast(pos_encoding, dtype=tf.float32)
-
-
-def build_transformer_model(input_shape, model_dim, num_heads, num_layers, ff_dim, output_dim, dropout = 0.1):
-    inputs = Input(input_shape)
-    x = Dense(model_dim)(inputs)
-    #position_encoding = positional_encoding(input_shape[0], model_dim)
-    #x = x + position_encoding
-    
-    for _ in range(num_layers):
-        x = transformer_block(x, model_dim, num_heads, ff_dim, dropout)
-    
-    x = GlobalAveragePooling1D()(x)
-    outputs = Dense(output_dim)(x)
-    
-    model = Model(inputs = inputs, outputs = outputs)
-    return model
 
 # X_train = X_train.reshape(X_train.shape[0], -1)
 # X_test = X_test.reshape(X_test.shape[0], -1)
@@ -117,14 +80,21 @@ print(f'Dimension of y_train is {y_train}')
 # print(f'Dimension of X_test is {X_test.shape}')
 # print(f'Dimension of y_test is {y_test.shape}')
 
-input_shape = (X_train.shape[1], X_train.shape[2])
-model_dim = 64
-num_heads = 8
-num_layers = 6
-ff_dim = 128
-output_dim = 1
+# input_shape = (X_train.shape[1], X_train.shape[2])
+# model_dim = 64
+# num_heads = 8
+# num_layers = 6
+# ff_dim = 128
+# output_dim = 1
 
-model = build_transformer_model(input_shape, model_dim, num_heads, num_layers, ff_dim, output_dim)
+# model = build_transformer_model(input_shape, model_dim, num_heads, num_layers, ff_dim, output_dim)
+
+X_train = X_train.reshape(X_train.shape[0], -1)
+X_test = X_test.reshape(X_test.shape[0], -1)
+
+input_shape = X_train.shape[1]
+output_dim = 1
+model = build_model(input_shape, output_dim, 128)
 print(model.summary())
 
 # Direction Accuracy Metric
@@ -135,7 +105,7 @@ def direction_accuracy(y_true, y_pred):
     direction_pred = tf.sign(y_pred[:, 1:] - y_pred[:, :-1])
     correct_directions = tf.equal(direction_true, direction_pred)
     return tf.reduce_mean(tf.cast(correct_directions, tf.float32))
-model.compile(optimizer = Adam(), loss = MeanAbsoluteError(), metrics = [direction_accuracy])
+model.compile(optimizer = Adam(), loss = MeanAbsoluteError(), metrics = ['mse'])
 
 # Custorm Learning Rate Schedular
 def custom_lr_schedule(epoch, lr):
@@ -173,65 +143,91 @@ print(f'Test result: Loss {loss}, MSE {mse}')
 
 # test trained data predictions
 prediction_train_data = model.predict(X_train)
-prediction_train_data += y_train[: -1]
-prediction_train_data = prediction_train_data * std['Close'] + mean['Close']
 
-actual_close_prices = np.array(gspc_data.Close[NUMBER_OF_SERIES_FOR_PREDICTION: train_data_size])
+# # Plotting the actual and predicted values
+# plt.figure(figsize=(20, 14))
+# plt.plot(y_train, label='Actual values', color='blue')  
+# plt.plot(prediction_train_data, label='Predicted values', color='red', linestyle='--')
+# plt.title('Actual vs Predicted values')
+# plt.xlabel('Time')
+# plt.ylabel('Close Price')
+# plt.legend()
+# plt.grid(True)
+# plt.show()
 
-# Plotting the actual and predicted values
-plt.figure(figsize=(20, 14))
-plt.plot(actual_close_prices, label='Actual Close Prices', color='blue')  
-plt.plot(prediction_train_data, label='Predicted Close Prices', color='red', linestyle='--')
-plt.title('Actual vs Predicted Close Prices')
-plt.xlabel('Time')
-plt.ylabel('Close Price')
-plt.legend()
-plt.grid(True)
-plt.show()
+# plt.savefig('diff_traindata_inference.png')
 
-plt.savefig('diff_training.png')
+# first = train.Close[NUMBER_OF_SERIES_FOR_PREDICTION - 1]
+
+# print(f'first {first}')
+# prediction_train_data[0] += first
+# for i in range(1, len(prediction_train_data)):
+#     prediction_train_data[i][0] += prediction_train_data[i - 1][0]
+
+# prediction_train_data = prediction_train_data * std['Close'] + mean['Close']
+
+# actual_close_prices = np.array(gspc_data.Close[NUMBER_OF_SERIES_FOR_PREDICTION: train_data_size])
+
+# # Plotting the actual and predicted values
+# plt.figure(figsize=(20, 14))
+# plt.plot(actual_close_prices, label='Actual Close Prices', color='blue')  
+# plt.plot(prediction_train_data, label='Predicted Close Prices', color='red', linestyle='--')
+# plt.title('Actual vs Predicted Close Prices')
+# plt.xlabel('Time')
+# plt.ylabel('Close Price')
+# plt.legend()
+# plt.grid(True)
+# plt.show()
+
+# plt.savefig('diff_training.png')
 
 
 # Make Predictions
 predictions = model.predict(X_test)
-predictions += y_test[: -1]
-predictions = predictions * std['Close'] + mean['Close']
-print(predictions.shape)
+# first = test.Close[NUMBER_OF_SERIES_FOR_PREDICTION - 1]
 
-predictions = predictions.flatten()
-print(f'after flatten {predictions.shape}')
+# print(f'first {first}')
+# predictions[0] += first
+# for i in range(1, len(predictions)):
+#     predictions[i][0] += predictions[i - 1][0]
 
-actual_close_prices = gspc_data.Close[train_data_size + NUMBER_OF_SERIES_FOR_PREDICTION:]
-print(f'actual_close_prices {actual_close_prices.shape}')
+# predictions = predictions * std['Close'] + mean['Close']
+# print(predictions.shape)
 
-max_diff = 0
-for org, pred in zip(actual_close_prices, predictions):
-    diff = np.abs(org - pred)
-    if max_diff < diff: max_diff = diff
-    print(f'Truth: {org}, Prediction: {pred} ----> Diff: {diff}')
+# predictions = predictions.flatten()
+# print(f'after flatten {predictions.shape}')
 
-print(f'Max Diff: {max_diff}')
+# actual_close_prices = gspc_data.Close[train_data_size + NUMBER_OF_SERIES_FOR_PREDICTION:]
+# print(f'actual_close_prices {actual_close_prices.shape}')
 
-actual_close_prices = np.array(actual_close_prices)
-print(f'actual_close_prices {actual_close_prices.shape}')
+# max_diff = 0
+# for org, pred in zip(actual_close_prices, predictions):
+#     diff = np.abs(org - pred)
+#     if max_diff < diff: max_diff = diff
+#     print(f'Truth: {org}, Prediction: {pred} ----> Diff: {diff}')
 
-gspc_dir = np.where(actual_close_prices[:-1] > actual_close_prices[1:], 1, 0)
-pred_dir = np.where(predictions[:-1] > predictions[1:], 1, 0)
+# print(f'Max Diff: {max_diff}')
+
+# actual_close_prices = np.array(actual_close_prices)
+# print(f'actual_close_prices {actual_close_prices.shape}')
+
+gspc_dir = np.where(y_test > 0, 1, 0)
+pred_dir = np.where(predictions > 0, 1, 0)
 dir_acc = np.mean(gspc_dir == pred_dir)
 
 print(f'Direction accuracy: {dir_acc}')
 
 model.save('diff_training.h5')
 
-# Plotting the actual and predicted values
-plt.figure(figsize=(20, 14))
-plt.plot(actual_close_prices, label='Actual Close Prices', color='blue')
-plt.plot(predictions, label='Predicted Close Prices', color='red', linestyle='--')
-plt.title('Actual vs Predicted Close Prices')
-plt.xlabel('Time')
-plt.ylabel('Close Price')
-plt.legend()
-plt.grid(True)
-plt.show()
+# # Plotting the actual and predicted values
+# plt.figure(figsize=(20, 14))
+# plt.plot(actual_close_prices, label='Actual Close Prices', color='blue')
+# plt.plot(predictions, label='Predicted Close Prices', color='red', linestyle='--')
+# plt.title('Actual vs Predicted Close Prices')
+# plt.xlabel('Time')
+# plt.ylabel('Close Price')
+# plt.legend()
+# plt.grid(True)
+# plt.show()
 
-plt.savefig('diff_test.png')
+# plt.savefig('diff_test.png')
