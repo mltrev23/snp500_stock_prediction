@@ -144,90 +144,90 @@ print(f'Test result: Loss {loss}, MSE {mse}')
 # test trained data predictions
 prediction_train_data = model.predict(X_train)
 
-# Plotting the actual and predicted values
-plt.figure(figsize=(20, 14))
-plt.plot(y_train, label='Actual values', color='blue')  
-plt.plot(prediction_train_data, label='Predicted values', color='red', linestyle='--')
-plt.title('Actual vs Predicted values')
-plt.xlabel('Time')
-plt.ylabel('Close Price')
-plt.legend()
-plt.grid(True)
-plt.show()
+# # Plotting the actual and predicted values
+# plt.figure(figsize=(20, 14))
+# plt.plot(y_train, label='Actual values', color='blue')  
+# plt.plot(prediction_train_data, label='Predicted values', color='red', linestyle='--')
+# plt.title('Actual vs Predicted values')
+# plt.xlabel('Time')
+# plt.ylabel('Close Price')
+# plt.legend()
+# plt.grid(True)
+# plt.show()
 
-plt.savefig('diff_traindata_inference.png')
+# plt.savefig('diff_traindata_inference.png')
 
-first = train.Close[NUMBER_OF_SERIES_FOR_PREDICTION - 1]
+# first = train.Close[NUMBER_OF_SERIES_FOR_PREDICTION - 1]
 
-print(f'first {first}')
-prediction_train_data[0] += first
-for i in range(1, len(prediction_train_data)):
-    prediction_train_data[i][0] += prediction_train_data[i - 1][0]
+# print(f'first {first}')
+# prediction_train_data[0] += first
+# for i in range(1, len(prediction_train_data)):
+#     prediction_train_data[i][0] += prediction_train_data[i - 1][0]
 
-prediction_train_data = prediction_train_data * std['Close'] + mean['Close']
+# prediction_train_data = prediction_train_data * std['Close'] + mean['Close']
 
-actual_close_prices = np.array(gspc_data.Close[NUMBER_OF_SERIES_FOR_PREDICTION: train_data_size])
+# actual_close_prices = np.array(gspc_data.Close[NUMBER_OF_SERIES_FOR_PREDICTION: train_data_size])
 
-# Plotting the actual and predicted values
-plt.figure(figsize=(20, 14))
-plt.plot(actual_close_prices, label='Actual Close Prices', color='blue')  
-plt.plot(prediction_train_data, label='Predicted Close Prices', color='red', linestyle='--')
-plt.title('Actual vs Predicted Close Prices')
-plt.xlabel('Time')
-plt.ylabel('Close Price')
-plt.legend()
-plt.grid(True)
-plt.show()
+# # Plotting the actual and predicted values
+# plt.figure(figsize=(20, 14))
+# plt.plot(actual_close_prices, label='Actual Close Prices', color='blue')  
+# plt.plot(prediction_train_data, label='Predicted Close Prices', color='red', linestyle='--')
+# plt.title('Actual vs Predicted Close Prices')
+# plt.xlabel('Time')
+# plt.ylabel('Close Price')
+# plt.legend()
+# plt.grid(True)
+# plt.show()
 
-plt.savefig('diff_training.png')
+# plt.savefig('diff_training.png')
 
 
 # Make Predictions
 predictions = model.predict(X_test)
-first = test.Close[NUMBER_OF_SERIES_FOR_PREDICTION - 1]
+# first = test.Close[NUMBER_OF_SERIES_FOR_PREDICTION - 1]
 
-print(f'first {first}')
-predictions[0] += first
-for i in range(1, len(predictions)):
-    predictions[i][0] += predictions[i - 1][0]
+# print(f'first {first}')
+# predictions[0] += first
+# for i in range(1, len(predictions)):
+#     predictions[i][0] += predictions[i - 1][0]
 
-predictions = predictions * std['Close'] + mean['Close']
-print(predictions.shape)
+# predictions = predictions * std['Close'] + mean['Close']
+# print(predictions.shape)
 
-predictions = predictions.flatten()
-print(f'after flatten {predictions.shape}')
+# predictions = predictions.flatten()
+# print(f'after flatten {predictions.shape}')
 
-actual_close_prices = gspc_data.Close[train_data_size + NUMBER_OF_SERIES_FOR_PREDICTION:]
-print(f'actual_close_prices {actual_close_prices.shape}')
+# actual_close_prices = gspc_data.Close[train_data_size + NUMBER_OF_SERIES_FOR_PREDICTION:]
+# print(f'actual_close_prices {actual_close_prices.shape}')
 
-max_diff = 0
-for org, pred in zip(actual_close_prices, predictions):
-    diff = np.abs(org - pred)
-    if max_diff < diff: max_diff = diff
-    print(f'Truth: {org}, Prediction: {pred} ----> Diff: {diff}')
+# max_diff = 0
+# for org, pred in zip(actual_close_prices, predictions):
+#     diff = np.abs(org - pred)
+#     if max_diff < diff: max_diff = diff
+#     print(f'Truth: {org}, Prediction: {pred} ----> Diff: {diff}')
 
-print(f'Max Diff: {max_diff}')
+# print(f'Max Diff: {max_diff}')
 
-actual_close_prices = np.array(actual_close_prices)
-print(f'actual_close_prices {actual_close_prices.shape}')
+# actual_close_prices = np.array(actual_close_prices)
+# print(f'actual_close_prices {actual_close_prices.shape}')
 
-gspc_dir = np.where(actual_close_prices[:-1] > actual_close_prices[1:], 1, 0)
-pred_dir = np.where(predictions[:-1] > predictions[1:], 1, 0)
+gspc_dir = np.where(y_test > 0, 1, 0)
+pred_dir = np.where(predictions > 0, 1, 0)
 dir_acc = np.mean(gspc_dir == pred_dir)
 
 print(f'Direction accuracy: {dir_acc}')
 
 model.save('diff_training.h5')
 
-# Plotting the actual and predicted values
-plt.figure(figsize=(20, 14))
-plt.plot(actual_close_prices, label='Actual Close Prices', color='blue')
-plt.plot(predictions, label='Predicted Close Prices', color='red', linestyle='--')
-plt.title('Actual vs Predicted Close Prices')
-plt.xlabel('Time')
-plt.ylabel('Close Price')
-plt.legend()
-plt.grid(True)
-plt.show()
+# # Plotting the actual and predicted values
+# plt.figure(figsize=(20, 14))
+# plt.plot(actual_close_prices, label='Actual Close Prices', color='blue')
+# plt.plot(predictions, label='Predicted Close Prices', color='red', linestyle='--')
+# plt.title('Actual vs Predicted Close Prices')
+# plt.xlabel('Time')
+# plt.ylabel('Close Price')
+# plt.legend()
+# plt.grid(True)
+# plt.show()
 
-plt.savefig('diff_test.png')
+# plt.savefig('diff_test.png')
