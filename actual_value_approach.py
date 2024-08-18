@@ -97,8 +97,8 @@ def positional_encoding(max_position, model_dim):
 def build_transformer_model(input_shape, model_dim, num_heads, num_layers, ff_dim, output_dim, dropout = 0.1):
     inputs = Input(input_shape)
     x = Dense(model_dim)(inputs)
-    #position_encoding = positional_encoding(input_shape[0], model_dim)
-    #x = x + position_encoding
+    position_encoding = positional_encoding(input_shape[0], model_dim)
+    x = x + position_encoding
     
     for _ in range(num_layers):
         x = transformer_block(x, model_dim, num_heads, ff_dim, dropout)
@@ -118,10 +118,10 @@ print(f'Dimension of y_train is {y_train}')
 # print(f'Dimension of y_test is {y_test.shape}')
 
 input_shape = (X_train.shape[1], X_train.shape[2])
-model_dim = 64
+model_dim = 512
 num_heads = 8
 num_layers = 6
-ff_dim = 128
+ff_dim = 1024
 output_dim = 1
 
 model = build_transformer_model(input_shape, model_dim, num_heads, num_layers, ff_dim, output_dim)
