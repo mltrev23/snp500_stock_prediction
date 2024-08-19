@@ -17,9 +17,7 @@
   * [Models](#models)
   * [Results](#results)
 
-## Contents
-
-### Models
+## Models
 
  1. LSTM
  2. GRU
